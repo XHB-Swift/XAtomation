@@ -32,6 +32,9 @@ class XAtomationViewController: NSViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        XFrameworkPackage.fetchXcodeVersion { (version) in
+            self.frameworkView?.setXcodeVersion(version: version)
+        }
         self.dragView?.dragDelegate = self
         self.frameworkView?.frameworkDelegate = self
         self.sizeCounterView?.dragDelegate = self
@@ -113,6 +116,12 @@ extension XAtomationViewController: XFrameworkViewDelegate {
         }) {
             view.stopLoading()
         }
+    }
+    
+    func frameworkView(view: XFrameworkView, didFetchXcodeVersionFromPath path: String) {
+        XFrameworkPackage.switchXcodeVersion(path: path, completion: {version in
+            view.setXcodeVersion(version: version)
+        })
     }
 }
 

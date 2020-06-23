@@ -20,7 +20,6 @@
 		C6F92D91242C3DF800580F42 /* XFrameworkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6F92D90242C3DF800580F42 /* XFrameworkView.swift */; };
 		C6F92D97242CC0F000580F42 /* XSizeCounterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6F92D96242CC0F000580F42 /* XSizeCounterView.swift */; };
 		C6F92D9D242CC56500580F42 /* XViewDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6F92D9C242CC56500580F42 /* XViewDelegate.swift */; };
-		C6F92D9F242CE05D00580F42 /* XViewExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6F92D9E242CE05D00580F42 /* XViewExtension.swift */; };
 		C6F92DA1242CE5B700580F42 /* XSizeCounter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6F92DA0242CE5B700580F42 /* XSizeCounter.swift */; };
 /* End PBXBuildFile section */
 
@@ -41,7 +40,6 @@
 		C6F92D90242C3DF800580F42 /* XFrameworkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XFrameworkView.swift; sourceTree = "<group>"; };
 		C6F92D96242CC0F000580F42 /* XSizeCounterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XSizeCounterView.swift; sourceTree = "<group>"; };
 		C6F92D9C242CC56500580F42 /* XViewDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XViewDelegate.swift; sourceTree = "<group>"; };
-		C6F92D9E242CE05D00580F42 /* XViewExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XViewExtension.swift; sourceTree = "<group>"; };
 		C6F92DA0242CE5B700580F42 /* XSizeCounter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XSizeCounter.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -75,6 +73,7 @@
 		C614CFB123D89B8B00F3DBB2 /* XAtomation */ = {
 			isa = PBXGroup;
 			children = (
+				C6CBD2E624A0BE9E001733ED /* XScript */,
 				C614CFC523D89C3100F3DBB2 /* XFunction */,
 				C68FF2BB23E7ECD700F8CB2F /* XView */,
 				C614CFB223D89B8B00F3DBB2 /* AppDelegate.swift */,
@@ -107,9 +106,15 @@
 				C6F92D90242C3DF800580F42 /* XFrameworkView.swift */,
 				C6F92D96242CC0F000580F42 /* XSizeCounterView.swift */,
 				C6F92D9C242CC56500580F42 /* XViewDelegate.swift */,
-				C6F92D9E242CE05D00580F42 /* XViewExtension.swift */,
 			);
 			path = XView;
+			sourceTree = "<group>";
+		};
+		C6CBD2E624A0BE9E001733ED /* XScript */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = XScript;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -192,7 +197,6 @@
 				C68FF2B823E67E4A00F8CB2F /* XFrameworkPackage.swift in Sources */,
 				C68FF2C523E994B900F8CB2F /* XQueue.swift in Sources */,
 				C6F92D97242CC0F000580F42 /* XSizeCounterView.swift in Sources */,
-				C6F92D9F242CE05D00580F42 /* XViewExtension.swift in Sources */,
 				C614CFB323D89B8B00F3DBB2 /* AppDelegate.swift in Sources */,
 				C614CFCB23D8A59B00F3DBB2 /* XCommandLine.swift in Sources */,
 			);

@@ -13,6 +13,7 @@ public let kXFrameworkDebugSymbol = "debugSymbol"
 protocol XFrameworkViewDelegate: class {
     
     func frameworkView(view: XFrameworkView, didStartPackage info: [String : Any])
+    func frameworkView(view: XFrameworkView, didFetchXcodeVersionFromPath path: String)
 }
 
 class XFrameworkView: NSView, XLoadingDelegate {
@@ -20,7 +21,12 @@ class XFrameworkView: NSView, XLoadingDelegate {
     weak var frameworkDelegate: XFrameworkViewDelegate?
     
     @IBOutlet private weak var packageButton: NSButton?
+    @IBOutlet private weak var xcodeVersionLbl: NSTextField?
     private var debugSymbol: Bool = false
+    
+    public func setXcodeVersion(version: String) {
+        self.xcodeVersionLbl?.stringValue = version
+    }
     
     @IBAction func radioButtonAction(sender: NSButton) {
         self.debugSymbol = (sender.title == "True")
@@ -28,6 +34,27 @@ class XFrameworkView: NSView, XLoadingDelegate {
     
     @IBAction func startPackageButtonAction(sender: NSButton) {
         self.frameworkDelegate?.frameworkView(view: self, didStartPackage: [kXFrameworkDebugSymbol:self.debugSymbol])
+    }
+    
+    @IBAction func switchXcodeVersion(sender: NSButton) {
+        guard let window = self.window else {
+            return
+        }
+        let panel = NSOpenPanel()
+        panel.canCreateDirectories = false
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+        panel.beginSheetModal(for: window) { response in
+            if response != .OK {
+                return
+            }
+            guard let path = panel.urls.first?.path else {
+                return
+            }
+            let xcDevPath = path + "/Contents/Developer"
+            self.frameworkDelegate?.frameworkView(view: self, didFetchXcodeVersionFromPath: xcDevPath)
+        }
     }
     
     func startLoading() {

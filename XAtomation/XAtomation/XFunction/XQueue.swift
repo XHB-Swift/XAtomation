@@ -8,9 +8,11 @@
 
 import Foundation
 
-func XAsyncExecute(_ subBlock: @escaping ()->Void, mainBlock: @escaping ()->Void) {
+func XAsyncExecute<T>(_ subBlock: @escaping ()->T, mainBlock: @escaping (T)->Void) {
     DispatchQueue.global().async {
-        subBlock()
-        DispatchQueue.main.async(execute: mainBlock)
+        let t = subBlock()
+        DispatchQueue.main.async {
+            mainBlock(t)
+        }
     }
 }

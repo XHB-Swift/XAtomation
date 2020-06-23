@@ -7,6 +7,7 @@
 //
 
 import Cocoa
+import ServiceManagement
 
 let XCommandError = XPackageError(code: 401, desc: "命令行输出异常")
 
@@ -62,4 +63,42 @@ func XCommandLineLaunch(cmd: String) -> Data {
     let data = file.readDataToEndOfFile()
     
     return data
+}
+
+func XAuthorizedCommandLineLaunch(authCmd: String, completion: @escaping (Bool)->Void) {
+    let appleScript = "do shell script \"\(authCmd)\" with administrator privileges"
+    let scriptFileName = "AppleScript.scpt"
+    if let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+        let scriptFilePath = dir.appendingPathComponent(scriptFileName)
+        do {
+            try appleScript.write(to: scriptFilePath, atomically: true, encoding: .utf8)
+            let task = try NSUserAppleScriptTask(url: scriptFilePath)
+            task.execute(withAppleEvent: nil) { (result, error) in
+                if result != nil {
+                    XDebugPrint(debugDescription: "执行结果", object: result)
+                    completion(true)
+                }else {
+                    XDebugPrint(debugDescription: "执行出错", object: error)
+                    completion(false)
+                }
+            }
+        } catch  {
+            XDebugPrint(debugDescription: "写入脚本失败", object: error)
+            completion(false)
+        }
+    }
+}
+
+extension String {
+    
+    var commandLine: String {
+        return String(data: XCommandLineLaunch(cmd: self), encoding: Encoding.utf8) ?? ""
+    }
+    
+    var int8PointerInfo: (pointer: UnsafePointer<Int8>, length: Int) {
+        let length = self.data(using: Encoding.utf8)?.count ?? 0
+        return (self.withCString { pointer in
+            return pointer
+        },length)
+    }
 }

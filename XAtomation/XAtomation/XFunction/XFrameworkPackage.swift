@@ -70,6 +70,33 @@ class XFrameworkPackage {
     public var bitCode: Bool = true
     public var packageInfo: XFrameworkPackageInfo?
     
+    // MARK: 切换Xcode版本
+    static public func switchXcodeVersion(path: String, completion: @escaping (String)->Void) {
+        //切换到目标Xcode路径
+        XDebugPrint(debugDescription: "目标路径", object: path)
+        XAuthorizedCommandLineLaunch(authCmd: "sudo xcode-select -s \(path)") { result in
+            if result {
+                self.fetchXcodeVersion(completion: completion)
+            }
+        }
+    }
+    
+    // MARK: 异步获取Xcode版本
+    static public func fetchXcodeVersion(completion: @escaping (String)->Void) {
+        DispatchQueue.global().async {
+            if let xcodeDeveloperPath = String(data: XCommandLineLaunch(cmd: "xcode-select -p"), encoding: String.Encoding.utf8) {
+                //获取info.plist
+                let xcodeInfoPath = xcodeDeveloperPath.replacingOccurrences(of: "/Developer", with: "").replacingOccurrences(of: "\n", with: "") + "/Info.plist"
+                if let info = NSDictionary(contentsOfFile: xcodeInfoPath),
+                    let version = info["CFBundleShortVersionString"] as? String {
+                    DispatchQueue.main.async {
+                        completion(version)
+                    }
+                }
+            }
+        }
+    }
+    
     public func createFramework() {
         guard let info = self.packageInfo else {
             return
@@ -85,6 +112,7 @@ class XFrameworkPackage {
         } catch {
             XDebugPrint(debugDescription: "Build error", object: error)
         }
+        self.deleteFrameworkDir(target: target)
     }
     
     // MARK: 生成.a格式的SDK
@@ -262,6 +290,24 @@ class XFrameworkPackage {
             _ = XCommandLineLaunch(cmd: "mkdir -p \(saveDir)/framework/真机\\&模拟器\(bitCodeDesc)")
         }
         return saveDir
+    }
+    
+    // MARK: 删除打包过程生成的文件夹
+    private func deleteFrameworkDir(target: XPbxprojTarget) {
+        var saveDir = ""
+        let fm = FileManager.default
+        if let url = fm.urls(for: .desktopDirectory, in: .userDomainMask).first {
+            let dir_url = url.absoluteString + "auto_sdk_\(target.targetName)"
+            saveDir = dir_url
+            if saveDir.hasPrefix("file://") {
+                saveDir = saveDir.replacingOccurrences(of: "file://", with: "")
+            }
+            do {
+                try fm.removeItem(atPath: saveDir)
+            } catch  {
+                XDebugPrint(debugDescription: "删除auto_sdk文件夹", object: error)
+            }
+        }
     }
     
     // MARK: 备份Xcode文件
