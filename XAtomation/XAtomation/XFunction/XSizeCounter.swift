@@ -13,6 +13,14 @@ struct XArchSizeInfo {
     var size: Double
 }
 
+struct XArchAvgSizeInfo {
+    var size: Double
+    var count: Int
+    var avgSize: String {
+        return String(round_d: size / Double(count), b: 2)
+    }
+}
+
 struct XSymbolMapInfo {
     var fileName: String
     var fileSize: Int
@@ -39,6 +47,17 @@ extension String {
     }
 }
 
+public extension String {
+    init(round_d: Double, b: Int) {
+        let p = pow(10, Double(b))
+        self.init(format: "%.\(b)f", round(round_d * p) / p)
+    }
+    init(round_f: Float, b: Int) {
+        let p = powf(10, Float(b))
+        self.init(format: "%.\(b)f", roundf(round_f * p) / p)
+    }
+}
+
 // MARK: 使用Size命令计算Framework增量
 class XFrameworkSizeCounter {
     
@@ -48,43 +67,43 @@ class XFrameworkSizeCounter {
         if !filePath.hasSuffix(".framework") {
             throw XPackageError(code: 400, desc: "非.framework格式文件")
         }
-        guard let output = String(data: XCommandLineLaunch(cmd: "ls \(filePath)"), encoding: .utf8) else {
+        let output = "ls \(filePath)".syncNormalCmd;
+        if output.count == 0 {
             throw XCommandError
         }
-        var file = ""
-        _ = output.components(separatedBy: "\n").map {
+        var file = output.components(separatedBy: "\n").filter {
             let itemPath = "\(filePath)/\($0)"
-            if let res = String(data: XCommandLineLaunch(cmd: "lipo -info \(itemPath)"), encoding: .utf8), res.contains("Architectures in the fat") {
-                file = $0
-                return
-            }
-        }
+            let res = "lipo -info \(itemPath)".syncNormalCmd
+            return res.contains("Architectures in the fat")
+        }.first ?? ""
         if file == "" {
             throw XPackageError(code: 400, desc: "当前路径找不到fat文件")
         }
         file = "\(filePath)/\(file)"
         // lipo -info %s | sed -En -e "s/^(Non-|Architectures in the )fat file: .+( is architecture| are): (.*)$/\\3/p"
         let countCmd = "lipo -info \(file) | sed -En -e \"s/^(Non-|Architectures in the )fat file: .+( is architecture| are): (.*)$/\\3/p\""
-        let countRes = String(data: XCommandLineLaunch(cmd: countCmd), encoding: .utf8)
-        guard let optCountRes = countRes, optCountRes != "" else {
+        let countRes = countCmd.syncNormalCmd
+        XDebugPrint(debugDescription: "countCmd Result", object: "file: \(file)\nCMD: \(countCmd)")
+        if countRes == "" {
             throw XCommandError
         }
         var archSizeInfo = [XArchSizeInfo]()
         _ = self.archs.map {
             let arch = $0.rawValue
-            if optCountRes.contains(arch) {
+            if countRes.contains(arch) {
                 // lipo -thin %s %s -output %s_%s.a
                 let thinCmd = "lipo -thin \(arch) \(file) -output \(file)_\(arch).a"
-                _ = XCommandLineLaunch(cmd: thinCmd)
+                _ = thinCmd.syncNormalCmd
                 let sizeCmd = "size \(file)_\(arch).a | awk '{printf \"%s\\n\",$1}'"
-                if let sizeResult = String(data: XCommandLineLaunch(cmd: sizeCmd), encoding: .utf8) {
+                let sizeResult = sizeCmd.syncNormalCmd
+                if sizeResult.count > 0 {
                     let sizeResults = sizeResult.components(separatedBy: "\n")
                     let sizeNum = sizeResults.filter {
                         return ($0 != "__DATA" || $0 != "__TEXT")
                     }.map {
                         return Double($0) ?? 0.0
                     }.reduce(0, +) / 1024.0
-                    _ = XCommandLineLaunch(cmd: "rm -fr \(file)_\(arch).a")
+                    _ = "rm -fr \(file)_\(arch).a".syncNormalCmd
                     archSizeInfo.append(XArchSizeInfo(arch: $0, size: sizeNum))
                 }
             }
@@ -208,9 +227,20 @@ class XSizeCounter {
         do {
             if self.filePath.hasSuffix(".framework") {
                 let archSizeInfos = try self.frameworkCounter.countFrameworkSize(filePath: self.filePath)
+                var simAvgSize = XArchAvgSizeInfo(size: 0.0, count: 0),
+                    devAvgSize = XArchAvgSizeInfo(size: 0.0, count: 0)
                 _ = archSizeInfos.map {
+                    if $0.arch.isSimulator {
+                        simAvgSize.size += $0.size
+                        simAvgSize.count += 1
+                    }else {
+                        devAvgSize.size += $0.size
+                        devAvgSize.count += 1
+                    }
                     sizeDescription += "\($0.arch.rawValue) = \(String(format: "%.2f", $0.size))kb \n"
                 }
+                
+                sizeDescription += "虚拟机平均增量：\(simAvgSize.avgSize)kb\n真机平均增量：\(devAvgSize.avgSize)kb"
             }else {
                 var sizeCount = 0.0
                 let result = try (self.linkMapResult ?? self.linkMapCounter.analyzeLinkMap(filePath: self.filePath))

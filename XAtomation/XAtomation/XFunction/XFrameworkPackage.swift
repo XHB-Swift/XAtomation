@@ -74,17 +74,21 @@ class XFrameworkPackage {
     static public func switchXcodeVersion(path: String, completion: @escaping (String)->Void) {
         //切换到目标Xcode路径
         XDebugPrint(debugDescription: "目标路径", object: path)
-        XAuthorizedCommandLineLaunch(authCmd: "sudo xcode-select -s \(path)") { result in
-            if result {
+        "sudo xcode-select -s \(path)".authorizedCmd { result in
+            switch result {
+            case .success(_):
                 self.fetchXcodeVersion(completion: completion)
+            case .failure(let error):
+                XDebugPrint(debugDescription: "切换目标路径异常", object: error)
             }
         }
     }
     
     // MARK: 异步获取Xcode版本
     static public func fetchXcodeVersion(completion: @escaping (String)->Void) {
-        DispatchQueue.global().async {
-            if let xcodeDeveloperPath = String(data: XCommandLineLaunch(cmd: "xcode-select -p"), encoding: String.Encoding.utf8) {
+        "xcode-select -p".asyncNormalCmd { result in
+            switch result {
+            case .success(let xcodeDeveloperPath):
                 //获取info.plist
                 let xcodeInfoPath = xcodeDeveloperPath.replacingOccurrences(of: "/Developer", with: "").replacingOccurrences(of: "\n", with: "") + "/Info.plist"
                 if let info = NSDictionary(contentsOfFile: xcodeInfoPath),
@@ -93,6 +97,8 @@ class XFrameworkPackage {
                         completion(version)
                     }
                 }
+            case .failure(let error):
+                XDebugPrint(debugDescription: "命令执行出错", object: error)
             }
         }
     }
@@ -126,15 +132,13 @@ class XFrameworkPackage {
         let frameworkFile = "\(frameworkName).framework"
         //1.将前面生成的所有.framework全部复制到a文件夹下面
         let cpFrameworkCmd = "cp -fr \(frameworkDir)/framework \(frameworkDir)/a"
-        _ = XCommandLineLaunch(cmd: cpFrameworkCmd)
+        _ = cpFrameworkCmd.syncNormalCmd
         //2.生成头文件文件夹
         let cpHeaderFileCmd = "cp -fr \(frameworkDir)/a/framework/模拟器/\(frameworkFile)/Headers     \(frameworkDir)/a/"
-        _ = XCommandLineLaunch(cmd: cpHeaderFileCmd)
+        _ = cpHeaderFileCmd.syncNormalCmd
         //3.获取framework的所有文件夹
         let allDirsCmd = "ls \(frameworkDir)/framework"
-        guard let output = String(data: XCommandLineLaunch(cmd: allDirsCmd), encoding: .utf8) else {
-            return
-        }
+        let output = allDirsCmd.syncNormalCmd
         let dirs = output.components(separatedBy: "\n")
 //        XDebugPrint(debugDescription: "输出文件夹", object: dirs)
         _ = dirs.filter { (dir) in
@@ -145,13 +149,13 @@ class XFrameworkPackage {
             let srcDir = "\(frameworkDir)/a/framework/\(fmtDir)/\(frameworkFile)/\(frameworkName)"
             let desDir = "\(frameworkDir)/a/\(fmtDir)/\(frameworkName).a"
             let cpDirCmd = "cp -fr \(srcDir) \(desDir)"
-            _ = XCommandLineLaunch(cmd: cpDirCmd)
+            _ = cpDirCmd.syncNormalCmd
             let rmFrwCmd = "rm -fr \(frameworkDir)/a/\(fmtDir)/\(frameworkFile)"
-            _ = XCommandLineLaunch(cmd: rmFrwCmd)
+            _ = rmFrwCmd.syncNormalCmd
         }
         //4.删除framework文件夹
         let rmFrwDir = "rm -fr \(frameworkDir)/a/framework"
-        _ = XCommandLineLaunch(cmd: rmFrwDir)
+        _ = rmFrwDir.syncNormalCmd
     }
     
     // MARK: 创建Framework的SDK
@@ -229,7 +233,8 @@ class XFrameworkPackage {
                                    platform: XPacakageBuildiOSPlatform) -> Bool {
         var buildSuccess = false
         let buildCmd = "xcodebuild clean \(arch) -sdk \(platform.rawValue) -workspace \(xcodeProjPath) -scheme \(target.targetName) ONLY_ACTIVE_ARCH=NO -configuration Release clean build -derivedDataPath \(outputDir)/autoBuild"
-        guard let cmdOutput = String(data: XCommandLineLaunch(cmd: buildCmd), encoding: .utf8) else {
+        let cmdOutput = buildCmd.syncNormalCmd
+        if cmdOutput.count == 0 {
             return buildSuccess
         }
         buildSuccess = cmdOutput.contains(self.buildScceededString)
@@ -246,7 +251,7 @@ class XFrameworkPackage {
         let srcFrameworkPath = "\(frameworkDir)/autoBuild/Build/Products/Release-\(releaseType)/\(targetFramework)"
         let destFrameworkPath = "\(frameworkDir)/framework/\(frameworkType)/"
         let copyFrameworkCmd = "cp -fr \(srcFrameworkPath) \(destFrameworkPath)"
-        _ = XCommandLineLaunch(cmd: copyFrameworkCmd)
+        _ = copyFrameworkCmd.syncNormalCmd
     }
     
     // MARK: 合并真机&模拟器Framework到指定目录
@@ -254,15 +259,16 @@ class XFrameworkPackage {
         let targetFramework = "\(targetName).framework"
         let bitCodeDesc = self.bitCodeDescription
         let copyFrameworkCmd = "cp -fr \(frameworkDir)/framework/真机\(bitCodeDesc)/\(targetFramework) \(frameworkDir)/framework/真机\\&模拟器\(bitCodeDesc)/\(targetFramework)"
-        _ = XCommandLineLaunch(cmd: copyFrameworkCmd)
+        _ = copyFrameworkCmd.syncNormalCmd
         let rmFrameworkCmd = "rm -fr \(frameworkDir)/framework/真机\\&模拟器\(bitCodeDesc)/\(targetFramework)/\(targetName)"
-        _ = XCommandLineLaunch(cmd: rmFrameworkCmd)
+        _ = rmFrameworkCmd.syncNormalCmd
         // lipo -create %s/framework/真机bitcode/%s.framework/%s %s/framework/模拟器bitcode/%s.framework/%s -output %s/framework/真机\&模拟器bitcode/%s.framework/%s
         let deviceFramework = "\(frameworkDir)/framework/真机\(bitCodeDesc)/\(targetFramework)/\(targetName)"
         let simulatorFramework = "\(frameworkDir)/framework/模拟器\(bitCodeDesc)/\(targetFramework)/\(targetName)"
         let outputDir = "\(frameworkDir)/framework/真机\\&模拟器\(bitCodeDesc)/\(targetFramework)/\(targetName)"
         let lipoCmd = "lipo -create \(deviceFramework) \(simulatorFramework) -output \(outputDir)"
-        guard let outputCmd = String(data: XCommandLineLaunch(cmd: lipoCmd), encoding: .utf8) else {
+        let outputCmd = lipoCmd.syncNormalCmd
+        if outputCmd.count == 0 {
             XDebugPrint(debugDescription: "无法获取lipo指令执行结果", object: nil)
             return
         }
@@ -283,11 +289,11 @@ class XFrameworkPackage {
                 saveDir = saveDir.replacingOccurrences(of: "file://", with: "")
             }
             let bitCodeDesc = self.bitCodeDescription
-            _ = XCommandLineLaunch(cmd: "mkdir -p \(saveDir)")
-            _ = XCommandLineLaunch(cmd: "mkdir -p \(saveDir)/framework")
-            _ = XCommandLineLaunch(cmd: "mkdir -p \(saveDir)/framework/模拟器\(bitCodeDesc)")
-            _ = XCommandLineLaunch(cmd: "mkdir -p \(saveDir)/framework/真机\(bitCodeDesc)")
-            _ = XCommandLineLaunch(cmd: "mkdir -p \(saveDir)/framework/真机\\&模拟器\(bitCodeDesc)")
+            _ = "mkdir -p \(saveDir)".syncNormalCmd
+            _ = "mkdir -p \(saveDir)/framework".syncNormalCmd
+            _ = "mkdir -p \(saveDir)/framework/模拟器\(bitCodeDesc)".syncNormalCmd
+            _ = "mkdir -p \(saveDir)/framework/真机\(bitCodeDesc)".syncNormalCmd
+            _ = "mkdir -p \(saveDir)/framework/真机\\&模拟器\(bitCodeDesc)".syncNormalCmd
         }
         return saveDir
     }
@@ -317,10 +323,10 @@ class XFrameworkPackage {
         let info_rm_fr_cmd = "rm -fr \(infoFolder)_copy"
         let info_cp_fr_cmd = "cp -fr \(infoFolder) \(infoFolder)_copy"
         
-        _ = XCommandLineLaunch(cmd: pbx_rm_fr_cmd)
-        _ = XCommandLineLaunch(cmd: pbx_cp_fr_cmd)
-        _ = XCommandLineLaunch(cmd: info_rm_fr_cmd)
-        _ = XCommandLineLaunch(cmd: info_cp_fr_cmd)
+        _ = pbx_rm_fr_cmd.syncNormalCmd
+        _ = pbx_cp_fr_cmd.syncNormalCmd
+        _ = info_rm_fr_cmd.syncNormalCmd
+        _ = info_cp_fr_cmd.syncNormalCmd
     }
     
     // MARK: 回滚Xcode的文件
@@ -330,10 +336,10 @@ class XFrameworkPackage {
         let info_cp_fr_cmd = "cp -fr \(infoFolder)_copy \(infoFolder)"
         let info_rm_fr_cmd = "rm -fr \(infoFolder)_copy"
         
-        _ = XCommandLineLaunch(cmd: pbx_cp_fr_cmd)
-        _ = XCommandLineLaunch(cmd: pbx_rm_fr_cmd)
-        _ = XCommandLineLaunch(cmd: info_cp_fr_cmd)
-        _ = XCommandLineLaunch(cmd: info_rm_fr_cmd)
+        _ = pbx_cp_fr_cmd.syncNormalCmd
+        _ = pbx_rm_fr_cmd.syncNormalCmd
+        _ = info_cp_fr_cmd.syncNormalCmd
+        _ = info_rm_fr_cmd.syncNormalCmd
     }
     
 }

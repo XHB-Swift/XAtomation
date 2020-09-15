@@ -41,9 +41,9 @@ extension String {
     /// - Parameter fileType: 文件类型
     func fetchProjectPathInfo(fileType: XProjectFileType) -> (hasPath: Bool, path: String) {
         let filePath = self.replacingOccurrences(of: "(", with: "\\(").replacingOccurrences(of: ")", with: "\\)")
-        let cmdData = XCommandLineLaunch(cmd: "cd \(filePath);ls")
+        let cmdContent = "cd \(filePath);ls".syncNormalCmd
         var result = (false,"")
-        guard let cmdContent = String(data: cmdData, encoding: .utf8) else {
+        if cmdContent.count == 0 {
             return result
         }
         let paths = cmdContent.components(separatedBy: "\n")
@@ -88,7 +88,7 @@ class XPbxprojParser {
             self.pbxprojXMLFilePath = pbxprojPathInfo.path;
             self.pbxprojJSONFilePath = "\(self.pbxprojXMLFilePath).json"
             //pbxproj转json在cmd没有结果返回，即""字符串
-            _ = XCommandLineLaunch(cmd: XCommandString.pbxTojson(self.pbxprojJSONFilePath, self.pbxprojXMLFilePath))
+            _ = XCommandString.pbxTojson(self.pbxprojJSONFilePath, self.pbxprojXMLFilePath).commandString.syncNormalCmd
             do {
                 let pbxprojJSONFileURL = URL(fileURLWithPath: self.pbxprojJSONFilePath)
                 let pbxprojFileJSONData = try Data(contentsOf: pbxprojJSONFileURL)
@@ -111,10 +111,10 @@ class XPbxprojParser {
                 //修改完毕即可保存配置
                 let jsonToXmlCmd = XCommandString.jsonTopbx(self.pbxprojXMLFilePath, self.pbxprojJSONFilePath)
                 //json转成xml
-                _ = XCommandLineLaunch(cmd: jsonToXmlCmd)
+                _ = jsonToXmlCmd.commandString.syncNormalCmd
                 let removeFileCmd = XCommandString.removeFile(self.pbxprojJSONFilePath)
                 //删除json文件
-                _ = XCommandLineLaunch(cmd: removeFileCmd)
+                _ = removeFileCmd.commandString.syncNormalCmd
             }catch {
                 XDebugPrint(debugDescription: "store pbxproj file failed", object: error)
             }

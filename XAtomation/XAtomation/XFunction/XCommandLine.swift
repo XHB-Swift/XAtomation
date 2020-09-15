@@ -11,7 +11,22 @@ import ServiceManagement
 
 let XCommandError = XPackageError(code: 401, desc: "命令行输出异常")
 
-enum XCommandString {
+public enum XResult<Success, Failure: Error> {
+    case success(Success)
+    case failure(Failure)
+    
+    public init(success: Success) {
+        self = .success(success)
+    }
+    
+    public init(failure: Failure) {
+        self = .failure(failure)
+    }
+}
+
+public typealias XCommandResult = (_ result: XResult<String,Error>) -> Void
+
+public enum XCommandString {
     
     //Xcode的pbxproj文件转json文件
     case pbxTojson(String,String)
@@ -40,65 +55,65 @@ enum XCommandString {
     }
 }
 
-func XCommandLineLaunch(cmd: XCommandString) -> Data {
-    return XCommandLineLaunch(cmd: cmd.commandString)
-}
-
-/// 输入命令，然后执行，相当于在终端的操作（注：某些命令执行结束后无返回值，Data对象是空内容）
-/// - Parameter cmd: 终端的可执行命令
-func XCommandLineLaunch(cmd: String) -> Data {
+public extension String {
     
-    let process = Process()
-    //使用shell命令执行
-    process.launchPath = "/bin/bash"
-    //设置执行命令的格式
-    process.arguments = ["-c", cmd]
-    //新建管道输出Process
-    let pipe = Pipe()
-    process.standardOutput = pipe
-    //开始Process
-    process.launch()
-    //获取运行结果
-    let file = pipe.fileHandleForReading
-    let data = file.readDataToEndOfFile()
+    /// 使用Proccess，Pipe同步执行命令
+    var syncNormalCmd: String {
+        let process = Process()
+        //使用shell命令执行
+        process.launchPath = "/bin/bash"
+        //设置执行命令的格式
+        process.arguments = ["-c", self]
+        //新建管道输出Process
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        //开始Process
+        process.launch()
+        //获取运行结果
+        let file = pipe.fileHandleForReading
+        let data = file.readDataToEndOfFile()
+        
+        return String(data: data, encoding: .utf8) ?? ""
+    }
     
-    return data
-}
-
-func XAuthorizedCommandLineLaunch(authCmd: String, completion: @escaping (Bool)->Void) {
-    let appleScript = "do shell script \"\(authCmd)\" with administrator privileges"
-    let scriptFileName = "AppleScript.scpt"
-    if let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
-        let scriptFilePath = dir.appendingPathComponent(scriptFileName)
-        do {
-            try appleScript.write(to: scriptFilePath, atomically: true, encoding: .utf8)
-            let task = try NSUserAppleScriptTask(url: scriptFilePath)
-            task.execute(withAppleEvent: nil) { (result, error) in
-                if result != nil {
-                    XDebugPrint(debugDescription: "执行结果", object: result)
-                    completion(true)
-                }else {
-                    XDebugPrint(debugDescription: "执行出错", object: error)
-                    completion(false)
-                }
+    /// 使用Proccess，Pipe异步执行命令
+    /// - Parameter completion: 回调
+    func asyncNormalCmd(completion: @escaping XCommandResult) {
+        DispatchQueue.global().async {
+            let result = self.syncNormalCmd
+            if result.count == 0 ||
+                result.contains("Command not found") ||
+                result.contains("No such file or directory") {
+                completion(XResult(failure: XCommandError))
+            }else {
+                completion(XResult(success: result))
             }
-        } catch  {
-            XDebugPrint(debugDescription: "写入脚本失败", object: error)
-            completion(false)
         }
     }
-}
-
-extension String {
     
-    var commandLine: String {
-        return String(data: XCommandLineLaunch(cmd: self), encoding: Encoding.utf8) ?? ""
-    }
-    
-    var int8PointerInfo: (pointer: UnsafePointer<Int8>, length: Int) {
-        let length = self.data(using: Encoding.utf8)?.count ?? 0
-        return (self.withCString { pointer in
-            return pointer
-        },length)
+    /// 超管权限异步执行命令
+    /// - Parameter completion: 回调
+    func authorizedCmd(completion: @escaping XCommandResult) {
+        let appleScript = "do shell script \"\(self)\" with administrator privileges"
+        let scriptFileName = "AppleScript.scpt"
+        if let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+            let scriptFilePath = dir.appendingPathComponent(scriptFileName)
+            do {
+                try appleScript.write(to: scriptFilePath, atomically: true, encoding: .utf8)
+                let task = try NSUserAppleScriptTask(url: scriptFilePath)
+                task.execute(withAppleEvent: nil) { (result, error) in
+                    if result != nil {
+                        completion(XResult(success: result!.stringValue ?? ""))
+                        XDebugPrint(debugDescription: "执行结果", object: result)
+                    }else {
+                        completion(XResult(failure: error!))
+                        XDebugPrint(debugDescription: "执行出错", object: error)
+                    }
+                }
+            } catch  {
+                completion(XResult(failure: error))
+                XDebugPrint(debugDescription: "写入脚本失败", object: error)
+            }
+        }
     }
 }
