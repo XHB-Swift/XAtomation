@@ -71,7 +71,7 @@ extension XAtomationViewController: XDragDelegate {
         if view is XDragView {
             if let target = self.pbxprojParser.target(at: index-1) {
                 let xcodeprojPath = self.pbxprojParser.xcodeProjectPath.fetchProjectPathInfo(fileType: String.XProjectFileType.xcworkspace)
-                let archs = XPackageiOSArch.allArchs
+                let archs = XPackageiOSArch.normalArchs
                 if xcodeprojPath.hasPath {
                     //配置打包SDK参数
                     self.pbxprojParser.setBuildSettingsData(buildSettingsData: [.MACH_O_TYPE:"staticlib"])

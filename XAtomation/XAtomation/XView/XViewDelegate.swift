@@ -8,13 +8,13 @@
 
 import Cocoa
 
-protocol XDragDelegate: class {
+protocol XDragDelegate: AnyObject {
     
     func dragView(view: NSView, didDragFilePath filePath: String)
     func dragView(view: NSView, didSelectTargetAtIndex index: Int)
 }
 
-protocol XLoadingDelegate: class {
+protocol XLoadingDelegate: AnyObject {
     
     func startLoading()
     func stopLoading()

@@ -136,10 +136,12 @@ class XPbxprojParser {
                     let productType = info["productType"] as? String,
                     let targetName = info["name"] as? String,
                     let buildConfigurationListID = info["buildConfigurationList"] as? String,
-                    let buildConfigurationInfo = objects[buildConfigurationListID] as? [String:Any], let buildConfigurations = buildConfigurationInfo["buildConfigurations"] as? [String],
+                    let buildConfigurationInfo = objects[buildConfigurationListID] as? [String:Any],
+                    let buildConfigurations = buildConfigurationInfo["buildConfigurations"] as? [String],
                     let debugBuildConfigurationID = buildConfigurations.first,
                     let debugBuildConfiguration = objects[debugBuildConfigurationID] as? [String:Any],
-                    let buildSettings = debugBuildConfiguration["buildSettings"] as? [String:Any], let infoFilePath = buildSettings["INFOPLIST_FILE"] as? String {
+                    let buildSettings = debugBuildConfiguration["buildSettings"] as? [String:Any],
+                    let infoFilePath = buildSettings["INFOPLIST_FILE"] as? String {
                     self.targets.append(XPbxprojTarget(targetName: targetName,
                                                        targetId: target,
                                                        productType: productType,

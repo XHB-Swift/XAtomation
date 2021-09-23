@@ -10,7 +10,7 @@ import Cocoa
 
 public let kXFrameworkDebugSymbol = "debugSymbol"
 
-protocol XFrameworkViewDelegate: class {
+protocol XFrameworkViewDelegate: AnyObject {
     
     func frameworkView(view: XFrameworkView, didStartPackage info: [String : Any])
     func frameworkView(view: XFrameworkView, didFetchXcodeVersionFromPath path: String)

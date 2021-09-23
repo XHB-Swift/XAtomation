@@ -33,6 +33,9 @@ public enum XPackageiOSArch: String {
     static var allArchs: [XPackageiOSArch] {
         return [.i386,.x86_64,.armv7,.armv7s,.arm64,.arm64e]
     }
+    static var normalArchs: [XPackageiOSArch] {
+        return [.i386,.x86_64,.arm64]
+    }
 }
 
 // MARK: 打包信息
@@ -237,6 +240,7 @@ class XFrameworkPackage {
         if cmdOutput.count == 0 {
             return buildSuccess
         }
+        XDebugPrint(debugDescription: "Build Print", object: cmdOutput)
         buildSuccess = cmdOutput.contains(self.buildScceededString)
         return buildSuccess
     }

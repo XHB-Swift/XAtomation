@@ -61,7 +61,7 @@ public extension String {
 // MARK: 使用Size命令计算Framework增量
 class XFrameworkSizeCounter {
     
-    public var archs = XPackageiOSArch.allArchs
+    public var archs = XPackageiOSArch.normalArchs
     
     public func countFrameworkSize(filePath: String) throws -> [XArchSizeInfo] {
         if !filePath.hasSuffix(".framework") {
@@ -71,13 +71,14 @@ class XFrameworkSizeCounter {
         if output.count == 0 {
             throw XCommandError
         }
-        var file = output.components(separatedBy: "\n").filter {
+        let files = output.components(separatedBy: "\n").filter {
             let itemPath = "\(filePath)/\($0)"
-            let res = "lipo -info \(itemPath)".syncNormalCmd
-            return res.contains("Architectures in the fat")
-        }.first ?? ""
+            let res = "lipo -info \(itemPath) | sed -En -e \"s/^(Non-|Architectures in the )fat file: .+( is architecture| are): (.*)$/\\3/p\"".syncNormalCmd
+            return res.hasPrefix("arm") || res.hasPrefix("x86") || res.hasPrefix("i386")
+        }
+        var file = files.first ?? ""
         if file == "" {
-            throw XPackageError(code: 400, desc: "当前路径找不到fat文件")
+            throw XPackageError(code: 400, desc: "当前路径找不到二进制文件")
         }
         file = "\(filePath)/\(file)"
         // lipo -info %s | sed -En -e "s/^(Non-|Architectures in the )fat file: .+( is architecture| are): (.*)$/\\3/p"
